@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Medicine Expiry & Stock Intelligence System</title>
+<style>
+:root {
+  --bg: #0f1117;
+  --surface: #1a1d2e;
+  --surface2: #222539;
+  --border: #2e3150;
+  --accent: #6c63ff;
+  --accent2: #00d4aa;
+  --danger: #ff4d6d;
+  --warning: #ffb347;
+  --success: #4caf50;
+  --info: #29b6f6;
+  --text: #e0e0e0;
+  --text2: #9399b2;
+  --critical: #ff2d55;
+  --high: #ff6b35;
+  --moderate: #ffc107;
+  --low: #4caf50;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); display: flex; min-height: 100vh; }
+
+/* Sidebar */
+#sidebar {
+  width: 240px; min-height: 100vh; background: var(--surface);
+  border-right: 1px solid var(--border); display: flex; flex-direction: column;
+  position: fixed; top: 0; left: 0; z-index: 100;
+}
+.sidebar-logo {
+  padding: 24px 20px 16px; border-bottom: 1px solid var(--border);
+}
+.sidebar-logo h2 { font-size: 1rem; color: var(--accent); line-height: 1.4; }
+.sidebar-logo p { font-size: 0.7rem; color: var(--text2); margin-top: 2px; }
+.sidebar-nav { flex: 1; padding: 12px 0; }
+.nav-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 20px; cursor: pointer; color: var(--text2);
+  font-size: 0.88rem; transition: all 0.2s; border-left: 3px solid transparent;
+}
+.nav-item:hover { background: var(--surface2); color: var(--text); }
+.nav-item.active { background: rgba(108,99,255,0.12); color: var(--accent); border-left-color: var(--accent); }
+.nav-item .icon { font-size: 1.1rem; width: 20px; text-align: center; }
+.sidebar-footer { padding: 16px 20px; border-top: 1px solid var(--border); font-size: 0.72rem; color: var(--text2); }
+
+/* Main */
+#main { margin-left: 240px; flex: 1; display: flex; flex-direction: column; }
+#topbar {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 14px 28px; display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 50;
+}
+#topbar h1 { font-size: 1.1rem; font-weight: 600; }
+#topbar .meta { font-size: 0.78rem; color: var(--text2); }
+#alert-badge {
+  background: var(--critical); color: #fff; border-radius: 20px;
+  padding: 3px 10px; font-size: 0.75rem; font-weight: 700; cursor: pointer;
+}
+#content { padding: 28px; flex: 1; }
+
+/* Pages */
+.page { display: none; }
+.page.active { display: block; }
+
+/* Cards */
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-bottom: 28px; }
+.stat-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 20px; display: flex; flex-direction: column; gap: 8px;
+}
+.stat-card .label { font-size: 0.75rem; color: var(--text2); text-transform: uppercase; letter-spacing: 0.05em; }
+.stat-card .value { font-size: 2rem; font-weight: 700; }
+.stat-card .sub { font-size: 0.75rem; color: var(--text2); }
+.stat-card.danger .value { color: var(--danger); }
+.stat-card.warning .value { color: var(--warning); }
+.stat-card.success .value { color: var(--success); }
+.stat-card.accent .value { color: var(--accent); }
+.stat-card.info .value { color: var(--info); }
+
+/* Tables */
+.table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 24px; }
+.table-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.table-header h3 { font-size: 0.95rem; font-weight: 600; }
+table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+thead { background: var(--surface2); }
+th { padding: 10px 14px; text-align: left; color: var(--text2); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
+td { padding: 11px 14px; border-top: 1px solid var(--border); vertical-align: middle; }
+tr:hover td { background: rgba(255,255,255,0.02); }
+tr.row-critical td { background: rgba(255,45,85,0.07); }
+tr.row-danger td { background: rgba(255,77,109,0.07); }
+tr.row-warning td { background: rgba(255,179,71,0.07); }
+
+/* Badges */
+.badge {
+  display: inline-block; padding: 2px 9px; border-radius: 20px;
+  font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+}
+.badge-critical { background: rgba(255,45,85,0.2); color: #ff4d6d; }
+.badge-high { background: rgba(255,107,53,0.2); color: #ff6b35; }
+.badge-moderate { background: rgba(255,193,7,0.2); color: #ffc107; }
+.badge-low { background: rgba(76,175,80,0.2); color: #4caf50; }
+.badge-otc { background: rgba(41,182,246,0.15); color: #29b6f6; }
+.badge-schedule { background: rgba(255,179,71,0.15); color: #ffb347; }
+.badge-schedule1 { background: rgba(255,77,109,0.15); color: #ff4d6d; }
+.badge-recall { background: rgba(255,45,85,0.3); color: #ff2d55; border: 1px solid #ff2d55; }
+.badge-vaccine { background: rgba(108,99,255,0.2); color: #a89cff; }
+
+/* Buttons */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px; border-radius: 8px; border: none;
+  cursor: pointer; font-size: 0.83rem; font-weight: 600; transition: all 0.2s;
+}
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: #5a52d5; }
+.btn-success { background: var(--success); color: #fff; }
+.btn-success:hover { background: #388e3c; }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-danger:hover { background: #c62828; }
+.btn-warning { background: var(--warning); color: #000; }
+.btn-warning:hover { background: #e6a23c; }
+.btn-outline { background: transparent; color: var(--text2); border: 1px solid var(--border); }
+.btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+.btn-sm { padding: 5px 10px; font-size: 0.76rem; }
+.btn-icon { padding: 6px 8px; }
+
+/* Form elements */
+.form-group { margin-bottom: 16px; }
+.form-label { display: block; margin-bottom: 6px; font-size: 0.8rem; color: var(--text2); font-weight: 500; }
+.form-control {
+  width: 100%; background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text); border-radius: 8px; padding: 9px 12px; font-size: 0.85rem;
+  transition: border 0.2s; outline: none;
+}
+.form-control:focus { border-color: var(--accent); }
+.form-control option { background: var(--surface2); }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+/* Modal */
+.modal-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+  z-index: 200; align-items: center; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+  padding: 28px; width: 600px; max-width: 95vw; max-height: 90vh;
+  overflow-y: auto; position: relative;
+}
+.modal-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 20px; }
+.modal-close {
+  position: absolute; top: 16px; right: 16px; background: none;
+  border: none; color: var(--text2); cursor: pointer; font-size: 1.2rem;
+}
+.modal-close:hover { color: var(--text); }
+
+/* Search */
+.search-bar { display: flex; gap: 10px; margin-bottom: 20px; align-items: center; }
+.search-input { flex: 1; }
+.filter-pills { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.pill {
+  padding: 5px 14px; border-radius: 20px; border: 1px solid var(--border);
+  background: transparent; color: var(--text2); cursor: pointer; font-size: 0.8rem; transition: all 0.2s;
+}
+.pill.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* Alert cards */
+.alert-list { display: flex; flex-direction: column; gap: 12px; }
+.alert-card {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
+  padding: 16px; display: flex; gap: 14px; align-items: flex-start;
+}
+.alert-card.critical { border-left: 4px solid var(--critical); }
+.alert-card.high { border-left: 4px solid var(--high); }
+.alert-card.moderate { border-left: 4px solid var(--moderate); }
+.alert-card.low { border-left: 4px solid var(--low); }
+.alert-icon { font-size: 1.4rem; margin-top: 2px; }
+.alert-body { flex: 1; }
+.alert-body strong { font-size: 0.88rem; display: block; margin-bottom: 4px; }
+.alert-body p { font-size: 0.8rem; color: var(--text2); }
+.alert-meta { font-size: 0.72rem; color: var(--text2); margin-top: 6px; }
+
+/* Drug interaction */
+.tag-input-wrap {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px; display: flex; flex-wrap: wrap; gap: 6px; min-height: 46px; cursor: text;
+}
+.tag-input-wrap:focus-within { border-color: var(--accent); }
+.drug-tag {
+  background: rgba(108,99,255,0.2); color: #a89cff; border-radius: 20px;
+  padding: 3px 10px; font-size: 0.8rem; display: flex; align-items: center; gap: 6px;
+}
+.drug-tag button { background: none; border: none; color: #a89cff; cursor: pointer; font-size: 0.9rem; line-height: 1; }
+.tag-input {
+  background: none; border: none; outline: none; color: var(--text);
+  font-size: 0.85rem; min-width: 120px; flex: 1; padding: 2px 4px;
+}
+.interaction-result {
+  border-radius: 10px; padding: 16px; margin-top: 8px;
+  border-left: 4px solid;
+}
+.interaction-result.SEVERE, .interaction-result.CONTRAINDICATED { border-color: var(--critical); background: rgba(255,45,85,0.08); }
+.interaction-result.MODERATE { border-color: var(--warning); background: rgba(255,193,7,0.08); }
+.interaction-result.MILD { border-color: var(--success); background: rgba(76,175,80,0.08); }
+
+/* Section headers */
+.section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.section-title { font-size: 1.2rem; font-weight: 700; }
+.section-sub { font-size: 0.8rem; color: var(--text2); margin-top: 2px; }
+
+/* Toast */
+#toast {
+  position: fixed; bottom: 28px; right: 28px; z-index: 999;
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
+  padding: 14px 20px; font-size: 0.85rem; display: none;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4); max-width: 320px;
+  animation: slideIn 0.3s ease;
+}
+#toast.success { border-left: 4px solid var(--success); }
+#toast.error { border-left: 4px solid var(--danger); }
+#toast.warning { border-left: 4px solid var(--warning); }
+@keyframes slideIn { from { transform: translateX(60px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+/* Tabs */
+.tabs { display: flex; gap: 0; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
+.tab {
+  padding: 10px 20px; cursor: pointer; color: var(--text2); font-size: 0.85rem;
+  border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.2s;
+}
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* Spinner */
+.spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.empty-state { text-align: center; padding: 48px 20px; color: var(--text2); }
+.empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
+
+.days-pill {
+  display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;
+}
+.days-critical { background: rgba(255,45,85,0.2); color: #ff4d6d; }
+.days-danger { background: rgba(255,107,53,0.2); color: #ff6b35; }
+.days-warning { background: rgba(255,193,7,0.2); color: #ffc107; }
+.days-ok { background: rgba(76,175,80,0.2); color: #4caf50; }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<nav id="sidebar">
+  <div class="sidebar-logo">
+    <h2>💊 MedExpiry<br>Intelligence</h2>
+    <p>Stock & Expiry Management</p>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-item active" onclick="navigate('dashboard')">
+      <span class="icon">📊</span> Dashboard
+    </div>
+    <div class="nav-item" onclick="navigate('inventory')">
+      <span class="icon">🗃️</span> Inventory
+    </div>
+    <div class="nav-item" onclick="navigate('dispense')">
+      <span class="icon">💉</span> Dispense
+    </div>
+    <div class="nav-item" onclick="navigate('interactions')">
+      <span class="icon">⚠️</span> Drug Interactions
+    </div>
+    <div class="nav-item" onclick="navigate('alerts')">
+      <span class="icon">🔔</span> Alerts
+    </div>
+    <div class="nav-item" onclick="navigate('suppliers')">
+      <span class="icon">🏭</span> Suppliers & Returns
+    </div>
+    <div class="nav-item" onclick="navigate('reports')">
+      <span class="icon">📈</span> Reports
+    </div>
+    <div class="nav-item" onclick="navigate('recall')">
+      <span class="icon">🚨</span> Recall Management
+    </div>
+  </div>
+  <div class="sidebar-footer">
+    Medicine Expiry & Stock v1.0<br>
+    H2 Console: <a href="/h2-console" target="_blank" style="color:var(--accent)">/h2-console</a>
+  </div>
+</nav>
+
+<!-- Main -->
+<div id="main">
+  <div id="topbar">
+    <h1 id="page-title">Dashboard</h1>
+    <div style="display:flex;gap:14px;align-items:center">
+      <span class="meta" id="last-updated">Loading...</span>
+      <span id="alert-badge" onclick="navigate('alerts')">🔔 0 Alerts</span>
+    </div>
+  </div>
+
+  <div id="content">
+
+    <!-- ===== DASHBOARD ===== -->
+    <div id="page-dashboard" class="page active">
+      <div class="stats-grid" id="stats-grid">
+        <div class="stat-card"><div class="label">Loading...</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div class="table-wrap">
+          <div class="table-header"><h3>⏰ Expiring in 30 Days</h3></div>
+          <div id="dash-expiring"><div class="empty-state"><div class="spinner"></div></div></div>
+        </div>
+        <div class="table-wrap">
+          <div class="table-header"><h3>🔔 Critical Alerts</h3></div>
+          <div id="dash-alerts" style="padding:12px"><div class="empty-state"><div class="spinner"></div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== INVENTORY ===== -->
+    <div id="page-inventory" class="page">
+      <div class="section-header">
+        <div><div class="section-title">Inventory</div><div class="section-sub">Manage all medicines</div></div>
+        <button class="btn btn-primary" onclick="openAddMedicine()">+ Add Medicine</button>
+      </div>
+      <div class="search-bar">
+        <input class="form-control search-input" id="inv-search" placeholder="Search by name..." oninput="filterInventory()"/>
+        <button class="btn btn-outline" onclick="loadInventory()">🔄 Refresh</button>
+      </div>
+      <div class="filter-pills">
+        <span class="pill active" onclick="setFilter('all',this)">All</span>
+        <span class="pill" onclick="setFilter('expiring',this)">Expiring Soon</span>
+        <span class="pill" onclick="setFilter('expired',this)">Expired</span>
+        <span class="pill" onclick="setFilter('low',this)">Low Stock</span>
+        <span class="pill" onclick="setFilter('recalled',this)">Recalled</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Name</th><th>Batch</th><th>Category</th>
+            <th>Qty</th><th>Expiry</th><th>Days Left</th>
+            <th>Schedule</th><th>Actions</th>
+          </tr></thead>
+          <tbody id="inv-tbody"><tr><td colspan="8" class="empty-state">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ===== DISPENSE ===== -->
+    <div id="page-dispense" class="page">
+      <div class="section-header">
+        <div><div class="section-title">Dispense Medicine</div><div class="section-sub">Issue medicines with prescription tracking</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+        <div>
+          <div class="form-group">
+            <label class="form-label">Search Medicine</label>
+            <input class="form-control" id="disp-search" placeholder="Type medicine name..." oninput="searchForDispense()"/>
+          </div>
+          <div id="disp-results" style="margin-bottom:16px"></div>
+          <div id="disp-form" style="display:none">
+            <div class="table-wrap" style="margin-bottom:16px">
+              <div style="padding:16px" id="disp-medicine-info"></div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Quantity to Dispense</label>
+              <input class="form-control" type="number" id="disp-qty" min="1" placeholder="Enter quantity"/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Prescription ID</label>
+              <input class="form-control" id="disp-rx" placeholder="RX-2024-XXXX (leave blank for OTC)"/>
+            </div>
+            <div id="disp-warning" style="display:none;background:rgba(255,193,7,0.1);border:1px solid var(--warning);border-radius:8px;padding:12px;margin-bottom:12px;font-size:0.83rem;color:var(--warning)"></div>
+            <button class="btn btn-success" style="width:100%" onclick="submitDispense()">✅ Dispense Medicine</button>
+          </div>
+        </div>
+        <div>
+          <div class="table-wrap">
+            <div class="table-header"><h3>Recent Dispense Log</h3></div>
+            <div id="disp-log" style="padding:16px;font-size:0.82rem">
+              <div class="empty-state"><div class="icon">📋</div>No dispenses yet</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== DRUG INTERACTIONS ===== -->
+    <div id="page-interactions" class="page">
+      <div class="section-header">
+        <div><div class="section-title">Drug Interaction Checker</div><div class="section-sub">60+ interactions database — coming soon</div></div>
+      </div>
+      <div class="empty-state" style="padding:80px 20px">
+        <div class="icon">⚠️</div>
+        <p style="font-size:1rem;margin-top:8px">Drug Interaction Engine — Under Development</p>
+        <p style="font-size:0.82rem;margin-top:8px;color:var(--text2)">60+ real drug interaction pairs will be checkable here.</p>
+      </div>
+    </div>
+
+    <!-- ===== ALERTS ===== -->
+    <div id="page-alerts" class="page">
+      <div class="section-header">
+        <div><div class="section-title">Alert Centre</div><div class="section-sub">Smart alerts — coming soon</div></div>
+      </div>
+      <div class="empty-state" style="padding:80px 20px">
+        <div class="icon">🔔</div>
+        <p style="font-size:1rem;margin-top:8px">Alert Engine — Under Development</p>
+        <p style="font-size:0.82rem;margin-top:8px;color:var(--text2)">Expiry alerts, low stock alerts and recall alerts will appear here.</p>
+      </div>
+    </div>
+
+    <!-- ===== SUPPLIERS ===== -->
+    <div id="page-suppliers" class="page">
+      <div class="section-header">
+        <div><div class="section-title">Suppliers & Returns</div></div>
+        <button class="btn btn-outline" onclick="loadSuppliers()">🔄 Refresh</button>
+      </div>
+      <div class="table-wrap" style="margin-bottom:24px">
+        <div class="table-header"><h3>All Suppliers</h3></div>
+        <table>
+          <thead><tr><th>Name</th><th>Type</th><th>Contact</th><th>Address</th><th>Return Window</th><th>Last Order</th></tr></thead>
+          <tbody id="suppliers-tbody"><tr><td colspan="6" class="empty-state">Loading...</td></tr></tbody>
+        </table>
+      </div>
+      <div class="table-wrap">
+        <div class="table-header">
+          <h3>💰 Returnable Stock</h3>
+          <button class="btn btn-outline btn-sm" onclick="loadReturnableStock()">Load</button>
+        </div>
+        <div id="returnable-content" style="padding:20px">
+          <div class="empty-state"><div class="icon">📦</div>Click Load to see returnable stock</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== REPORTS ===== -->
+    <div id="page-reports" class="page">
+      <div class="section-header">
+        <div><div class="section-title">Reports</div></div>
+      </div>
+      <div style="display:flex;gap:10px;margin-bottom:24px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="loadReport('wastage')">📉 Wastage Report</button>
+        <button class="btn btn-primary" onclick="loadReport('forecast')">🔮 Expiry Forecast</button>
+        <button class="btn btn-primary" onclick="loadReport('valuation')">💰 Stock Valuation</button>
+        <button class="btn btn-primary" onclick="loadReport('audit')">📋 Audit Log</button>
+        <button class="btn btn-outline" onclick="exportReport()">⬇️ Export CSV</button>
+      </div>
+      <div id="report-content">
+        <div class="empty-state"><div class="icon">📈</div>Select a report to view</div>
+      </div>
+    </div>
+
+    <!-- ===== RECALL ===== -->
+    <div id="page-recall" class="page">
+      <div class="section-header">
+        <div><div class="section-title">Recall Management</div><div class="section-sub">Initiate batch recalls</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+        <div class="table-wrap">
+          <div style="padding:24px">
+            <div class="form-group">
+              <label class="form-label">Batch Number</label>
+              <input class="form-control" id="recall-batch" placeholder="e.g. BATCH-PAR-001"/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Recall Reason</label>
+              <textarea class="form-control" id="recall-reason" rows="3" placeholder="Describe the reason for recall..."></textarea>
+            </div>
+            <button class="btn btn-danger" style="width:100%" onclick="initiateRecall()">🚨 Initiate Recall</button>
+          </div>
+        </div>
+        <div>
+          <div class="table-wrap">
+            <div class="table-header"><h3>🚨 Recalled Medicines</h3></div>
+            <table>
+              <thead><tr><th>Name</th><th>Batch</th><th>Qty</th><th>Category</th></tr></thead>
+              <tbody id="recalled-tbody"><tr><td colspan="4" class="empty-state">Loading...</td></tr></tbody>
+            </table>
+          </div>
+          <div id="recall-result" style="margin-top:16px"></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- Add Medicine Modal -->
+<div class="modal-overlay" id="add-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="modal-title">Add New Medicine</div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Medicine Name*</label><input class="form-control" id="m-name" placeholder="e.g. Paracetamol 500mg"/></div>
+      <div class="form-group"><label class="form-label">Batch Number*</label><input class="form-control" id="m-batch" placeholder="e.g. BATCH-001"/></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Expiry Date*</label><input class="form-control" type="date" id="m-expiry"/></div>
+      <div class="form-group"><label class="form-label">Manufacture Date</label><input class="form-control" type="date" id="m-mfg"/></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Category*</label>
+        <select class="form-control" id="m-category">
+          <option value="ANALGESIC">Analgesic</option><option value="ANTIBIOTIC">Antibiotic</option>
+          <option value="ANTACID">Antacid</option><option value="VITAMIN">Vitamin</option>
+          <option value="VACCINE">Vaccine</option><option value="CARDIAC">Cardiac</option>
+          <option value="DIABETIC">Diabetic</option><option value="ANTIFUNGAL">Antifungal</option>
+          <option value="ANTIHISTAMINE">Antihistamine</option><option value="OTHER">Other</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Schedule Type*</label>
+        <select class="form-control" id="m-schedule">
+          <option value="OTC">OTC</option>
+          <option value="SCHEDULE_H">Schedule H</option>
+          <option value="SCHEDULE_H1">Schedule H1</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row-3">
+      <div class="form-group"><label class="form-label">Quantity*</label><input class="form-control" type="number" id="m-qty" min="0" placeholder="0"/></div>
+      <div class="form-group"><label class="form-label">Purchase Price (₹)*</label><input class="form-control" type="number" id="m-pprice" min="0" step="0.01" placeholder="0.00"/></div>
+      <div class="form-group"><label class="form-label">Selling Price (₹)*</label><input class="form-control" type="number" id="m-sprice" min="0" step="0.01" placeholder="0.00"/></div>
+    </div>
+    <div class="form-group"><label class="form-label">Supplier ID (optional)</label><input class="form-control" id="m-supplier" placeholder="Leave blank if unknown"/></div>
+    <div style="display:flex;gap:20px;margin-bottom:16px">
+      <label style="display:flex;gap:8px;align-items:center;font-size:0.85rem;cursor:pointer">
+        <input type="checkbox" id="m-controlled"/> Controlled Substance
+      </label>
+      <label style="display:flex;gap:8px;align-items:center;font-size:0.85rem;cursor:pointer">
+        <input type="checkbox" id="m-returnable" checked/> Returnable
+      </label>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="submitAddMedicine()">Add Medicine</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Stock Modal -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal" style="max-width:360px">
+    <button class="modal-close" onclick="document.getElementById('edit-modal').classList.remove('open')">✕</button>
+    <div class="modal-title">Update Stock</div>
+    <input type="hidden" id="edit-med-id"/>
+    <div class="form-group"><label class="form-label">New Quantity</label>
+      <input class="form-control" type="number" id="edit-qty" min="0"/>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-outline" onclick="document.getElementById('edit-modal').classList.remove('open')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitEditStock()">Update</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+const API = 'http://localhost:8080/api';
+let allMedicines = [];
+let currentFilter = 'all';
+let selectedMedicine = null;
+let dispenseLog = [];
+let drugTags = [];
+let currentReport = null;
+
+// ===== NAVIGATION =====
+function navigate(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  const navItems = document.querySelectorAll('.nav-item');
+  navItems.forEach(n => { if (n.textContent.toLowerCase().includes(page === 'dashboard' ? 'dashboard' : page)) n.classList.add('active'); });
+  const titles = { dashboard:'Dashboard', inventory:'Inventory', dispense:'Dispense Medicine', interactions:'Drug Interactions', alerts:'Alert Centre', suppliers:'Suppliers & Returns', reports:'Reports', recall:'Recall Management' };
+  document.getElementById('page-title').textContent = titles[page] || page;
+  if (page === 'dashboard') loadDashboard();
+  if (page === 'inventory') loadInventory();
+  if (page === 'suppliers') loadSuppliers();
+  if (page === 'recall') loadRecalled();
+}
+
+// ===== TOAST =====
+function toast(msg, type='success', duration=3500) {
+  const el = document.getElementById('toast');
+  el.className = type;
+  el.textContent = msg;
+  el.style.display = 'block';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.style.display='none', duration);
+}
+
+// ===== API HELPERS =====
+async function api(path, opts={}) {
+  const res = await fetch(API + path, { headers:{'Content-Type':'application/json'}, ...opts });
+  const json = await res.json();
+  if (!json.success && json.message) throw new Error(json.message);
+  return json.data;
+}
+
+// ===== DASHBOARD =====
+async function loadDashboard() {
+  try {
+    const stats = await api('/system/stats');
+    renderStats(stats);
+    const expiring = await api('/medicines/expiring?days=30');
+    renderDashExpiring(expiring);
+    renderDashAlerts([]);
+    document.getElementById('last-updated').textContent = 'Updated: ' + new Date().toLocaleTimeString();
+    document.getElementById('alert-badge').textContent = '🔔 0 Alerts';
+  } catch(e) { toast('Dashboard load error: ' + e.message, 'error'); }
+}
+
+function renderStats(s) {
+  document.getElementById('stats-grid').innerHTML = `
+    <div class="stat-card accent"><div class="label">Total Medicines</div><div class="value">${s.totalMedicines}</div><div class="sub">in inventory</div></div>
+    <div class="stat-card warning"><div class="label">Expiring Soon</div><div class="value">${s.expiringSoon}</div><div class="sub">within 30 days</div></div>
+    <div class="stat-card danger"><div class="label">Expired</div><div class="value">${s.expired}</div><div class="sub">need removal</div></div>
+    <div class="stat-card"><div class="label">Low Stock</div><div class="value" style="color:var(--info)">${s.lowStock}</div><div class="sub">below threshold</div></div>
+    <div class="stat-card success"><div class="label">Inventory Value</div><div class="value" style="font-size:1.4rem">₹${Number(s.totalInventoryValue).toLocaleString('en-IN', {minimumFractionDigits:0, maximumFractionDigits:0})}</div><div class="sub">purchase price</div></div>
+    <div class="stat-card danger"><div class="label">Critical Alerts</div><div class="value">${s.criticalAlerts}</div><div class="sub">${s.activeAlerts} total active</div></div>
+  `;
+}
+
+function renderDashExpiring(meds) {
+  if (!meds.length) { document.getElementById('dash-expiring').innerHTML = '<div class="empty-state"><div class="icon">✅</div>No medicines expiring soon</div>'; return; }
+  let rows = meds.slice(0,8).map(m => `
+    <tr class="${rowClass(m.daysUntilExpiry)}">
+      <td><strong>${m.name}</strong></td>
+      <td>${m.batchNumber}</td>
+      <td><span class="${daysPillClass(m.daysUntilExpiry)} days-pill">${m.daysUntilExpiry}d</span></td>
+      <td>${m.quantity}</td>
+    </tr>`).join('');
+  document.getElementById('dash-expiring').innerHTML = `
+    <table><thead><tr><th>Name</th><th>Batch</th><th>Days Left</th><th>Qty</th></tr></thead>
+    <tbody>${rows}</tbody></table>`;
+}
+
+function renderDashAlerts(alerts) {
+  const critical = alerts.filter(a => a.severity === 'CRITICAL').slice(0,5);
+  if (!critical.length) { document.getElementById('dash-alerts').innerHTML = '<div class="empty-state"><div class="icon">✅</div>No critical alerts</div>'; return; }
+  document.getElementById('dash-alerts').innerHTML = critical.map(a => alertCard(a, false)).join('');
+}
+
+// ===== INVENTORY =====
+async function loadInventory() {
+  try {
+    allMedicines = await api('/medicines');
+    renderInventory(allMedicines);
+  } catch(e) { toast('Inventory load error: ' + e.message, 'error'); }
+}
+
+function renderInventory(meds) {
+  const search = document.getElementById('inv-search').value.toLowerCase();
+  let filtered = meds.filter(m => m.name.toLowerCase().includes(search));
+  if (currentFilter === 'expiring') filtered = filtered.filter(m => m.daysUntilExpiry >= 0 && m.daysUntilExpiry <= 30 && !m.expired);
+  else if (currentFilter === 'expired') filtered = filtered.filter(m => m.expired || m.daysUntilExpiry < 0);
+  else if (currentFilter === 'low') filtered = filtered.filter(m => m.quantity < 10);
+  else if (currentFilter === 'recalled') filtered = filtered.filter(m => m.recalled);
+
+  if (!filtered.length) { document.getElementById('inv-tbody').innerHTML = '<tr><td colspan="8"><div class="empty-state"><div class="icon">🔍</div>No medicines found</div></td></tr>'; return; }
+
+  document.getElementById('inv-tbody').innerHTML = filtered.map(m => {
+    const days = m.daysUntilExpiry;
+    const rc = days < 0 ? 'row-critical' : days <= 15 ? 'row-danger' : days <= 30 ? 'row-warning' : '';
+    const pill = `<span class="${daysPillClass(days)} days-pill">${days < 0 ? 'EXPIRED' : days + 'd'}</span>`;
+    const sched = m.scheduleType === 'OTC' ? '<span class="badge badge-otc">OTC</span>' :
+                  m.scheduleType === 'SCHEDULE_H' ? '<span class="badge badge-schedule">Sch H</span>' :
+                  '<span class="badge badge-schedule1">Sch H1</span>';
+    const recallBadge = m.recalled ? ' <span class="badge badge-recall">RECALLED</span>' : '';
+    return `<tr class="${rc}">
+      <td><strong>${m.name}</strong>${recallBadge}</td>
+      <td style="font-family:monospace;font-size:0.78rem">${m.batchNumber}</td>
+      <td>${m.category ? m.category.charAt(0) + m.category.slice(1).toLowerCase() : ''}</td>
+      <td><strong style="color:${m.quantity<10?'var(--danger)':m.quantity<20?'var(--warning)':'inherit'}">${m.quantity}</strong></td>
+      <td>${m.expiryDate}</td>
+      <td>${pill}</td>
+      <td>${sched}</td>
+      <td style="display:flex;gap:6px">
+        <button class="btn btn-outline btn-sm btn-icon" onclick="openEditStock('${m.medicineId}',${m.quantity})">✏️</button>
+        <button class="btn btn-danger btn-sm btn-icon" onclick="removeMedicine('${m.medicineId}','${m.name}')">🗑️</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function filterInventory() { renderInventory(allMedicines); }
+
+function setFilter(f, el) {
+  currentFilter = f;
+  document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  renderInventory(allMedicines);
+}
+
+function rowClass(days) {
+  if (days < 0) return 'row-critical';
+  if (days <= 15) return 'row-danger';
+  if (days <= 30) return 'row-warning';
+  return '';
+}
+function daysPillClass(days) {
+  if (days < 0) return 'days-critical';
+  if (days <= 15) return 'days-danger';
+  if (days <= 30) return 'days-warning';
+  return 'days-ok';
+}
+
+// Add Medicine Modal
+function openAddMedicine() { document.getElementById('add-modal').classList.add('open'); }
+function closeModal() { document.getElementById('add-modal').classList.remove('open'); }
+
+async function submitAddMedicine() {
+  const name = document.getElementById('m-name').value.trim();
+  const batch = document.getElementById('m-batch').value.trim();
+  const expiry = document.getElementById('m-expiry').value;
+  if (!name || !batch || !expiry) { toast('Name, batch and expiry date are required','error'); return; }
+  const body = {
+    name, batchNumber: batch, expiryDate: expiry,
+    manufactureDate: document.getElementById('m-mfg').value || null,
+    category: document.getElementById('m-category').value,
+    scheduleType: document.getElementById('m-schedule').value,
+    quantity: parseInt(document.getElementById('m-qty').value) || 0,
+    purchasePrice: parseFloat(document.getElementById('m-pprice').value) || 0,
+    sellingPrice: parseFloat(document.getElementById('m-sprice').value) || 0,
+    isControlled: document.getElementById('m-controlled').checked,
+    isReturnable: document.getElementById('m-returnable').checked,
+    supplierId: document.getElementById('m-supplier').value || null,
+  };
+  try {
+    await api('/medicines', { method:'POST', body: JSON.stringify(body) });
+    closeModal();
+    toast('Medicine added successfully ✅');
+    loadInventory();
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+}
+
+function openEditStock(id, qty) {
+  document.getElementById('edit-med-id').value = id;
+  document.getElementById('edit-qty').value = qty;
+  document.getElementById('edit-modal').classList.add('open');
+}
+
+async function submitEditStock() {
+  const id = document.getElementById('edit-med-id').value;
+  const qty = parseInt(document.getElementById('edit-qty').value);
+  if (isNaN(qty) || qty < 0) { toast('Invalid quantity', 'error'); return; }
+  try {
+    await api('/medicines/' + id + '/stock', { method:'PUT', body: JSON.stringify({quantity: qty}) });
+    document.getElementById('edit-modal').classList.remove('open');
+    toast('Stock updated ✅');
+    loadInventory();
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+}
+
+async function removeMedicine(id, name) {
+  if (!confirm('Remove "' + name + '" from inventory?')) return;
+  try {
+    await api('/medicines/' + id, { method:'DELETE' });
+    toast('Medicine removed');
+    loadInventory();
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+}
+
+// ===== DISPENSE =====
+let dispenseTimeout;
+async function searchForDispense() {
+  const q = document.getElementById('disp-search').value.trim();
+  clearTimeout(dispenseTimeout);
+  if (!q) { document.getElementById('disp-results').innerHTML=''; document.getElementById('disp-form').style.display='none'; return; }
+  dispenseTimeout = setTimeout(async () => {
+    const results = await api('/medicines/search?q=' + encodeURIComponent(q));
+    document.getElementById('disp-results').innerHTML = results.slice(0,5).map(m => `
+      <div onclick="selectMedicineForDispense(${JSON.stringify(m).replace(/"/g,'&quot;')})"
+           style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:6px;cursor:pointer;transition:border 0.2s"
+           onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <strong>${m.name}</strong> — ${m.batchNumber}
+        <span style="float:right;color:${m.quantity<10?'var(--danger)':'var(--success)'}">Qty: ${m.quantity}</span>
+      </div>`).join('');
+  }, 300);
+}
+
+function selectMedicineForDispense(m) {
+  selectedMedicine = m;
+  document.getElementById('disp-search').value = m.name;
+  document.getElementById('disp-results').innerHTML = '';
+  document.getElementById('disp-form').style.display = 'block';
+  const days = m.daysUntilExpiry;
+  document.getElementById('disp-medicine-info').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:0.83rem">
+      <div><span style="color:var(--text2)">Medicine:</span> <strong>${m.name}</strong></div>
+      <div><span style="color:var(--text2)">Batch:</span> ${m.batchNumber}</div>
+      <div><span style="color:var(--text2)">Stock:</span> <strong style="color:${m.quantity<10?'var(--danger)':'var(--success)'}">${m.quantity} units</strong></div>
+      <div><span style="color:var(--text2)">Expires:</span> <span class="${daysPillClass(days)} days-pill">${m.expiryDate} (${days}d)</span></div>
+      <div><span style="color:var(--text2)">Schedule:</span> ${m.scheduleType}</div>
+      <div><span style="color:var(--text2)">Price:</span> ₹${m.sellingPrice}/unit</div>
+    </div>`;
+  const warn = document.getElementById('disp-warning');
+  if (m.controlled) {
+    warn.style.display = 'block';
+    warn.textContent = `⚠️ Controlled substance (${m.scheduleType}). Max ${m.scheduleType === 'SCHEDULE_H1' ? 10 : 30} units per prescription. Prescription ID required.`;
+  } else { warn.style.display = 'none'; }
+  document.getElementById('disp-qty').value = 1;
+  document.getElementById('disp-rx').value = '';
+}
+
+async function submitDispense() {
+  if (!selectedMedicine) { toast('Select a medicine first','error'); return; }
+  const qty = parseInt(document.getElementById('disp-qty').value);
+  const rx = document.getElementById('disp-rx').value.trim();
+  if (!qty || qty < 1) { toast('Enter valid quantity','error'); return; }
+  if (selectedMedicine.controlled && !rx) { toast('Prescription ID required for controlled substances','error'); return; }
+  try {
+    const result = await api('/dispense', { method:'POST', body: JSON.stringify({ medicineId: selectedMedicine.medicineId, quantity: qty, prescriptionId: rx || null }) });
+    toast(`Dispensed ${qty}x ${selectedMedicine.name} ✅`);
+    dispenseLog.unshift({ ...result, name: selectedMedicine.name, time: new Date().toLocaleTimeString() });
+    renderDispenseLog();
+    document.getElementById('disp-form').style.display = 'none';
+    document.getElementById('disp-search').value = '';
+    selectedMedicine = null;
+  } catch(e) { toast('Dispense failed: ' + e.message, 'error'); }
+}
+
+function renderDispenseLog() {
+  if (!dispenseLog.length) return;
+  document.getElementById('disp-log').innerHTML = dispenseLog.slice(0,10).map(d => `
+    <div style="border-bottom:1px solid var(--border);padding:8px 0">
+      <div style="display:flex;justify-content:space-between">
+        <strong>${d.medicineName || d.name}</strong>
+        <span style="color:var(--success)">-${d.dispensedQuantity} units</span>
+      </div>
+      <div style="color:var(--text2);font-size:0.75rem">${d.time} | RX: ${d.prescriptionId||'OTC'} | Remaining: ${d.remainingStock}</div>
+    </div>`).join('');
+}
+
+// ===== DRUG INTERACTIONS =====
+function addDrugTag(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const val = document.getElementById('drug-input').value.trim().toUpperCase();
+    if (val && !drugTags.includes(val)) {
+      drugTags.push(val);
+      renderDrugTags();
+    }
+    document.getElementById('drug-input').value = '';
+  }
+}
+
+function removeDrugTag(name) {
+  drugTags = drugTags.filter(t => t !== name);
+  renderDrugTags();
+}
+
+function clearDrugs() {
+  drugTags = [];
+  renderDrugTags();
+  document.getElementById('interaction-results').innerHTML = '';
+}
+
+function renderDrugTags() {
+  const wrap = document.getElementById('tag-wrap');
+  const input = document.getElementById('drug-input');
+  wrap.innerHTML = '';
+  drugTags.forEach(t => {
+    const tag = document.createElement('span');
+    tag.className = 'drug-tag';
+    tag.innerHTML = `${t} <button onclick="removeDrugTag('${t}')">×</button>`;
+    wrap.appendChild(tag);
+  });
+  wrap.appendChild(input);
+  input.focus();
+}
+
+async function checkInteractions() {
+  if (drugTags.length < 2) { toast('Add at least 2 drugs to check','warning'); return; }
+  try {
+    const results = await api('/interactions/check', { method:'POST', body: JSON.stringify({ medicines: drugTags }) });
+    const el = document.getElementById('interaction-results');
+    if (!results.length) {
+      el.innerHTML = '<div class="table-wrap" style="padding:24px;text-align:center;color:var(--success)">✅ No interactions found between these drugs.</div>';
+      return;
+    }
+    el.innerHTML = `<div class="table-wrap"><div class="table-header"><h3>⚠️ ${results.length} Interaction(s) Found</h3></div>
+      ${results.map(r => `<div class="interaction-result ${r.severity}" style="margin:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <strong>${r.drug1} ↔ ${r.drug2}</strong>
+          <span class="badge badge-${r.severity==='SEVERE'||r.severity==='CONTRAINDICATED'?'critical':r.severity.toLowerCase()}">${r.severity}</span>
+        </div>
+        <div style="margin-bottom:6px">⚡ <strong>Effect:</strong> ${r.effect}</div>
+        <div style="color:var(--text2);font-size:0.82rem">💊 <strong>Recommendation:</strong> ${r.recommendation}</div>
+      </div>`).join('')}
+    </div>`;
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+}
+
+// ===== ALERTS =====
+async function loadAlerts() {
+  try {
+    const active = await api('/alerts');
+    renderAlertList('alert-list-active', active);
+    const history = await api('/alerts/history');
+    renderAlertList('alert-list-history', history, true);
+    document.getElementById('alert-badge').textContent = '🔔 ' + active.length + ' Alerts';
+  } catch(e) { toast('Alert load error: ' + e.message, 'error'); }
+}
+
+function renderAlertList(containerId, alerts, isHistory=false) {
+  const el = document.getElementById(containerId);
+  if (!alerts.length) { el.innerHTML = '<div class="empty-state"><div class="icon">✅</div>No alerts</div>'; return; }
+  el.innerHTML = alerts.map(a => alertCard(a, !isHistory)).join('');
+}
+
+function alertCard(a, showAck=true) {
+  const sev = (a.severity||'').toLowerCase();
+  const icons = { critical:'🚨', high:'⚠️', moderate:'⚡', low:'ℹ️' };
+  const icon = icons[sev] || '🔔';
+  const time = a.createdAt ? new Date(a.createdAt).toLocaleString() : '';
+  return `<div class="alert-card ${sev}">
+    <div class="alert-icon">${icon}</div>
+    <div class="alert-body">
+      <strong>${a.medicineName || 'System Alert'}</strong>
+      <p>${a.message}</p>
+      <div class="alert-meta">${time} · Type: ${a.type||''} · <span class="badge badge-${sev}">${a.severity}</span></div>
+    </div>
+    ${showAck ? `<button class="btn btn-outline btn-sm" onclick="acknowledgeAlert('${a.alertId}')">✓ Ack</button>` : ''}
+  </div>`;
+}
+
+async function acknowledgeAlert(id) {
+  try {
+    await api('/alerts/' + id + '/acknowledge', { method:'POST' });
+    toast('Alert acknowledged');
+    loadAlerts();
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+}
+
+async function regenerateAlerts() {
+  try {
+    const count = await api('/alerts/regenerate', { method:'POST' });
+    toast('Alerts regenerated: ' + count + ' active');
+    loadAlerts();
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+}
+
+function switchAlertTab(tab, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('alerts-active').style.display = tab === 'active' ? '' : 'none';
+  document.getElementById('alerts-history').style.display = tab === 'history' ? '' : 'none';
+}
+
+// ===== SUPPLIERS =====
+async function loadSuppliers() {
+  try {
+    const suppliers = await api('/suppliers');
+    document.getElementById('suppliers-tbody').innerHTML = suppliers.map(s => `
+      <tr>
+        <td><strong>${s.name}</strong></td>
+        <td><span class="badge badge-otc">${s.type}</span></td>
+        <td>${s.contactNumber || '-'}</td>
+        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.address || '-'}</td>
+        <td>${s.returnWindowDays || '-'} days</td>
+        <td>${s.lastOrderDate || '-'}</td>
+      </tr>`).join('');
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+}
+
+async function loadReturnableStock() {
+  try {
+    const data = await api('/suppliers/returnable');
+    const keys = Object.keys(data);
+    if (!keys.length) {
+      document.getElementById('returnable-content').innerHTML = '<div class="empty-state"><div class="icon">📦</div>No returnable stock found</div>';
+      return;
+    }
+    let html = '';
+    let grandTotal = 0;
+    keys.forEach(k => {
+      const s = data[k];
+      grandTotal += s.totalReturnValue || 0;
+      html += `<div style="margin-bottom:20px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <strong>${s.supplierName}</strong>
+          <span style="color:var(--success)">Recovery: ₹${Number(s.totalReturnValue).toFixed(2)}</span>
+        </div>
+        <p style="font-size:0.78rem;color:var(--text2);margin-bottom:8px">${s.returnPolicy}</p>
+        <table style="width:100%;font-size:0.82rem">
+          <thead><tr><th style="padding:6px 0">Medicine</th><th>Batch</th><th>Qty</th><th>Days Left</th><th>Return Value</th></tr></thead>
+          <tbody>${(s.returnableMedicines||[]).map(m => `
+            <tr>
+              <td style="padding:5px 0"><strong>${m.medicineName}</strong></td>
+              <td>${m.batchNumber}</td><td>${m.quantity}</td>
+              <td><span class="${daysPillClass(m.daysUntilExpiry)} days-pill">${m.daysUntilExpiry}d</span></td>
+              <td style="color:var(--success)">₹${Number(m.returnValue).toFixed(2)}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+    });
+    html += `<div style="border-top:1px solid var(--border);padding-top:12px;text-align:right;color:var(--success);font-weight:700">Grand Total Recovery: ₹${grandTotal.toFixed(2)}</div>`;
+    document.getElementById('returnable-content').innerHTML = html;
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+}
+
+// ===== REPORTS =====
+async function loadReport(type) {
+  currentReport = type;
+  const el = document.getElementById('report-content');
+  el.innerHTML = '<div class="empty-state"><div class="spinner"></div><p style="margin-top:12px">Loading report...</p></div>';
+  try {
+    let data, html;
+    if (type === 'wastage') {
+      data = await api('/reports/wastage');
+      html = `<div class="table-wrap"><div class="table-header"><h3>📉 Wastage Report — ${data.month}/${data.year}</h3>
+        <span style="color:var(--danger)">Total Wastage: ₹${Number(data.totalWastageValue).toFixed(2)}</span></div>
+        <table><thead><tr><th>Name</th><th>Batch</th><th>Category</th><th>Qty</th><th>Expiry</th><th>Wastage Value</th></tr></thead>
+        <tbody>${(data.items||[]).length ? data.items.map(i => `<tr>
+          <td><strong>${i.name}</strong></td><td>${i.batchNumber}</td><td>${i.category}</td>
+          <td>${i.quantity}</td><td>${i.expiryDate}</td>
+          <td style="color:var(--danger)">₹${Number(i.wastageValue).toFixed(2)}</td>
+        </tr>`).join('') : '<tr><td colspan="6" class="empty-state">No wastage this period</td></tr>'}</tbody></table></div>`;
+    } else if (type === 'forecast') {
+      data = await api('/reports/forecast');
+      html = `<div class="table-wrap"><div class="table-header"><h3>🔮 Expiry Forecast Report</h3></div>
+        <table><thead><tr><th>Name</th><th>Category</th><th>Qty</th><th>Expiry</th><th>Days Left</th><th>Will Expire Before Sold</th><th>Suggested Discount</th></tr></thead>
+        <tbody>${data.map(i => `<tr class="${rowClass(i.daysUntilExpiry)}">
+          <td><strong>${i.name}</strong></td><td>${i.category}</td><td>${i.quantity}</td>
+          <td>${i.expiryDate}</td>
+          <td><span class="${daysPillClass(i.daysUntilExpiry)} days-pill">${i.daysUntilExpiry}d</span></td>
+          <td style="color:${i.willExpireBeforeSold?'var(--danger)':'var(--success)'}">${i.willExpireBeforeSold ? '⚠️ YES' : '✅ No'}</td>
+          <td>${i.suggestedDiscount ? '<span class="badge badge-critical">-' + i.suggestedDiscount + '%</span>' : '-'}</td>
+        </tr>`).join('')}</tbody></table></div>`;
+    } else if (type === 'valuation') {
+      data = await api('/reports/valuation');
+      const cats = data.valuationByCategory || {};
+      html = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div class="table-wrap"><div style="padding:20px">
+          <div style="margin-bottom:16px"><h3 style="margin-bottom:12px">💰 Stock Valuation</h3>
+            <div style="display:grid;gap:10px">
+              <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">Total Purchase Value</span><strong>₹${Number(data.totalPurchaseValue).toFixed(2)}</strong></div>
+              <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">Total Selling Value</span><strong style="color:var(--success)">₹${Number(data.totalSellingValue).toFixed(2)}</strong></div>
+              <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:8px"><span style="color:var(--text2)">Projected Margin</span><strong style="color:var(--accent)">₹${Number(data.projectedMargin).toFixed(2)}</strong></div>
+              <div style="display:flex;justify-content:space-between"><span style="color:var(--warning)">At-Risk Value (expiring 30d)</span><strong style="color:var(--warning)">₹${Number(data.atRiskValue).toFixed(2)}</strong></div>
+            </div>
+          </div>
+        </div></div>
+        <div class="table-wrap"><div class="table-header"><h3>By Category</h3></div>
+          <table><thead><tr><th>Category</th><th>Value</th></tr></thead>
+          <tbody>${Object.entries(cats).map(([k,v]) => `<tr><td>${k}</td><td>₹${Number(v).toFixed(2)}</td></tr>`).join('')}</tbody>
+          </table></div>
+      </div>`;
+    } else if (type === 'audit') {
+      data = await api('/reports/audit');
+      html = `<div class="table-wrap"><div class="table-header"><h3>📋 Audit Log (${data.length} records)</h3></div>
+        <table><thead><tr><th>Medicine</th><th>Action</th><th>Qty</th><th>Prescription</th><th>Timestamp</th></tr></thead>
+        <tbody>${data.length ? data.map(r => `<tr>
+          <td><strong>${r.medicineName}</strong></td>
+          <td><span class="badge badge-${r.action==='DISPENSED'?'otc':r.action==='RECALLED'?'critical':'schedule'}">${r.action}</span></td>
+          <td>${r.quantity}</td>
+          <td>${r.prescriptionId || 'OTC'}</td>
+          <td style="font-size:0.78rem">${new Date(r.timestamp).toLocaleString()}</td>
+        </tr>`).join('') : '<tr><td colspan="5" class="empty-state">No audit records yet</td></tr>'}</tbody></table></div>`;
+    }
+    el.innerHTML = html;
+  } catch(e) { toast('Report error: ' + e.message, 'error'); el.innerHTML = '<div class="empty-state">Failed to load report</div>'; }
+}
+
+async function exportReport() {
+  if (!currentReport) { toast('Load a report first','warning'); return; }
+  try {
+    await api('/reports/export?type=' + currentReport.toUpperCase(), { method:'POST' });
+    toast('Exported to ./reports/ directory ✅');
+  } catch(e) { toast('Export error: ' + e.message, 'error'); }
+}
+
+// ===== RECALL =====
+async function loadRecalled() {
+  try {
+    const meds = await api('/medicines');
+    const recalled = meds.filter(m => m.recalled);
+    document.getElementById('recalled-tbody').innerHTML = recalled.length
+      ? recalled.map(m => `<tr><td><strong>${m.name}</strong></td><td>${m.batchNumber}</td><td>${m.quantity}</td><td>${m.category}</td></tr>`).join('')
+      : '<tr><td colspan="4" class="empty-state">No recalled medicines</td></tr>';
+  } catch(e) {}
+}
+
+async function initiateRecall() {
+  const batch = document.getElementById('recall-batch').value.trim();
+  const reason = document.getElementById('recall-reason').value.trim();
+  if (!batch) { toast('Enter batch number','error'); return; }
+  if (!reason) { toast('Enter recall reason','error'); return; }
+  try {
+    const affected = await api('/system/recall', { method:'POST', body: JSON.stringify({ batchNumber: batch, reason }) });
+    const el = document.getElementById('recall-result');
+    el.innerHTML = `<div class="table-wrap" style="border-left:4px solid var(--critical)">
+      <div style="padding:16px">
+        <strong style="color:var(--critical)">🚨 Recall Initiated</strong>
+        <p style="color:var(--text2);margin-top:4px">${affected.length} medicine(s) recalled for batch: ${batch}</p>
+        ${affected.map(m => `<div style="margin-top:6px;font-size:0.83rem">• ${m.name} (${m.batchNumber}) — ${m.quantity} units</div>`).join('')}
+      </div>
+    </div>`;
+    toast(affected.length + ' medicine(s) recalled 🚨', 'error');
+    document.getElementById('recall-batch').value = '';
+    document.getElementById('recall-reason').value = '';
+    loadRecalled();
+  } catch(e) { toast('Recall error: ' + e.message, 'error'); }
+}
+
+// ===== INIT =====
+window.addEventListener('load', () => {
+  loadDashboard();
+  setInterval(loadDashboard, 60000); // auto-refresh every 60s
+});
+</script>
+</body>
+</html>
