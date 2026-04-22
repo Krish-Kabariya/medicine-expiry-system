@@ -6,11 +6,12 @@ import com.pharmacy.dto.MedicineDTO;
 import com.pharmacy.exception.ControlledSubstanceLimitException;
 import com.pharmacy.exception.InsufficientStockException;
 import com.pharmacy.exception.MedicineNotFoundException;
-import com.pharmacy.model.ConsumptionRecord;
-import com.pharmacy.model.Medicine;
+import com.pharmacy.model.*;
 import com.pharmacy.model.enums.ScheduleType;
 import com.pharmacy.repository.ConsumptionRecordRepository;
 import com.pharmacy.repository.MedicineRepository;
+import com.pharmacy.repository.SupplierRepository;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +37,37 @@ public class InventoryService {
     @Autowired
     private AlertService alertService;
 
+    @Autowired
+    private SupplierRepository supplierRepository; // 🔥 NEW
+
+    // 🔥 ================= SUPPLIER MAPPING =================
+    private String mapSupplierTypeToId(String supplierType) {
+        if (supplierType == null) return null;
+
+        return switch (supplierType.toUpperCase()) {
+            case "LOCAL" -> supplierRepository.findAll().stream()
+                    .filter(s -> s instanceof LocalSupplier)
+                    .findFirst()
+                    .map(Supplier::getSupplierId)
+                    .orElseThrow(() -> new RuntimeException("Local supplier not found"));
+
+            case "WHOLESALE" -> supplierRepository.findAll().stream()
+                    .filter(s -> s instanceof WholesaleDistributor)
+                    .findFirst()
+                    .map(Supplier::getSupplierId)
+                    .orElseThrow(() -> new RuntimeException("Wholesale supplier not found"));
+
+            case "GOVERNMENT" -> supplierRepository.findAll().stream()
+                    .filter(s -> s instanceof GovernmentSupplier)
+                    .findFirst()
+                    .map(Supplier::getSupplierId)
+                    .orElseThrow(() -> new RuntimeException("Government supplier not found"));
+
+            default -> throw new RuntimeException("Invalid supplier type");
+        };
+    }
+    // 🔥 =====================================================
+
     public List<Medicine> getAllMedicines() {
         return medicineRepository.findAll();
     }
@@ -47,8 +79,12 @@ public class InventoryService {
 
     @Transactional
     public Medicine addMedicine(MedicineDTO dto) {
+
+        // 🔥 MAPPING APPLY HERE
+        String actualSupplierId = mapSupplierTypeToId(dto.getSupplierId());
+
         Medicine medicine = Medicine.builder()
-                .medicineId(dto.getMedicineId())
+                .medicineId(dto.getMedicineId() != null ? dto.getMedicineId() : UUID.randomUUID().toString())
                 .name(dto.getName())
                 .batchNumber(dto.getBatchNumber())
                 .expiryDate(dto.getExpiryDate())
@@ -59,9 +95,9 @@ public class InventoryService {
                 .sellingPrice(dto.getSellingPrice())
                 .isControlled(dto.isControlled())
                 .scheduleType(dto.getScheduleType())
-                .supplierId(dto.getSupplierId())
+                .supplierId(actualSupplierId) // 🔥 IMPORTANT CHANGE
                 .isRecalled(false)
-                .isReturnable(dto.isReturnable())
+                .isReturnable(true)
                 .build();
 
         Medicine saved = medicineRepository.save(medicine);
@@ -110,12 +146,10 @@ public class InventoryService {
     public Map<String, Object> dispenseMedicine(DispenseRequestDTO request) {
         Medicine medicine = getMedicineById(request.getMedicineId());
 
-        // Check sufficient stock
         if (medicine.getQuantity() < request.getQuantity()) {
             throw new InsufficientStockException(medicine.getName(), request.getQuantity(), medicine.getQuantity());
         }
 
-        // Check controlled substance limits
         if (medicine.isControlled() || medicine.getScheduleType() != ScheduleType.OTC) {
             int maxAllowed = medicine.getScheduleType().getMaxQtyPerPrescription();
             if (maxAllowed > 0 && request.getQuantity() > maxAllowed) {
@@ -123,11 +157,9 @@ public class InventoryService {
             }
         }
 
-        // Reduce quantity
         medicine.setQuantity(medicine.getQuantity() - request.getQuantity());
         medicineRepository.save(medicine);
 
-        // Create consumption record
         ConsumptionRecord record = ConsumptionRecord.builder()
                 .medicineId(medicine.getMedicineId())
                 .date(LocalDate.now())
@@ -136,13 +168,9 @@ public class InventoryService {
                 .build();
         consumptionRecordRepository.save(record);
 
-        // Audit log
         auditService.logDispense(medicine, request.getQuantity(), request.getPrescriptionId());
-
-        // Regenerate alerts
         alertService.generateAlertsForAllMedicines();
 
-        // Return response
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("medicineName", medicine.getName());
         response.put("dispensedQuantity", request.getQuantity());

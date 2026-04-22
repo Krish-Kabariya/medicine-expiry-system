@@ -998,6 +998,13 @@
                         <option value="ANTIHISTAMINE">Antihistamine</option><option value="OTHER">Other</option>
                     </select>
                 </div>
+                <div class="form-group"><label>Supplier *</label>
+                    <select id="add-supplier">
+                        <option value="LOCAL">Local Supplier</option>
+                        <option value="WHOLESALE">Wholesale Distributor</option>
+                        <option value="GOVERNMENT">Government Supplier</option>
+                    </select>
+                </div>
                 <div class="form-group"><label>Schedule *</label>
                     <select id="add-schedule">
                         <option value="OTC">OTC</option><option value="SCHEDULE_H">Schedule H</option><option value="SCHEDULE_H1">Schedule H1</option>
@@ -1269,6 +1276,7 @@ async function submitAddMedicine() {
         manufactureDate: document.getElementById('add-mfg').value || null,
         purchasePrice: parseFloat(document.getElementById('add-pprice').value) || 0,
         sellingPrice: parseFloat(document.getElementById('add-sprice').value) || 0,
+        supplierId: document.getElementById('add-supplier').value,
         isControlled: document.getElementById('add-schedule').value !== 'OTC',
         isReturnable: true,
         isRecalled: false
